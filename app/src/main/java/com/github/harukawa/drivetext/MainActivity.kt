@@ -283,13 +283,15 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     suspend fun downLoadFile(googleDriveService: Drive, id : String, name : String) {
 
-        // Download file refers to https://developers.google.com/drive/api/v3/manage-downloads
-        val outputStream: ByteArrayOutputStream = ByteArrayOutputStream()
-        googleDriveService.files().get(id).executeMediaAndDownloadTo(outputStream)
-        openFileOutput(name, Context.MODE_PRIVATE).use{
-            it.write(outputStream.toByteArray())
+        withContext(Dispatchers.IO) {
+            // Download file refers to https://developers.google.com/drive/api/v3/manage-downloads
+            val outputStream: ByteArrayOutputStream = ByteArrayOutputStream()
+            googleDriveService.files().get(id).executeMediaAndDownloadTo(outputStream)
+            openFileOutput(name, Context.MODE_PRIVATE).use {
+                it.write(outputStream.toByteArray())
+            }
+            outputStream.close()
         }
-        outputStream.close()
     }
 
     override fun onStop() {
