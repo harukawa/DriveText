@@ -156,9 +156,7 @@ fun CommandTableHolder.getPendingList() : List<CommandTableHolder.PendingCommand
             res += CommandTableHolder.PendingCommand(cursor.getLong(0), cursor.getInt(1))
         }while(cursor.moveToNext())
     }finally {
-        if(cursor!=null) {
-            cursor.close()
-        }
+        cursor.close()
     }
     return res
 }

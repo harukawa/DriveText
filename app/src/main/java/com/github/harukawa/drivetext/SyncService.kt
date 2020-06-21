@@ -3,7 +3,7 @@ package com.github.harukawa.drivetext
 import android.app.IntentService
 import android.content.Context
 import android.content.Intent
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 import android.util.Log
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.client.http.FileContent
@@ -105,8 +105,8 @@ class SyncService : IntentService("Sync"), CoroutineScope by MainScope() {
                             spaces = _spaces
                             fields = _fields
                         } else {
-                            val (q, spaces, fields) = cmdTable.getDriveInfo(current.id)
-                            startSync(q, spaces, fields)
+                            val (_q, _spaces, _fields) = cmdTable.getDriveInfo(current.id)
+                            startSync(_q, _spaces, _fields)
                         }
                         cmdTable.deleteEntries(current.id)
                     }
@@ -155,13 +155,6 @@ class SyncService : IntentService("Sync"), CoroutineScope by MainScope() {
             }
         }
 
-        var isUpdate : Boolean
-        var isDownload : Boolean
-        var isConflict : Boolean
-        var isSameName : Boolean
-        var isExistLocal : Boolean
-        var isChangeName : Boolean
-
         /*
         Update or download is decided based on the date and time information of the file
         in the target folder obtained from Google Drive.
@@ -171,87 +164,7 @@ class SyncService : IntentService("Sync"), CoroutineScope by MainScope() {
 
         for(file in result){
             driveIds.add(file.id)
-            isUpdate = false
-            isDownload = false
-            isConflict = false
-            isSameName = false
-            isExistLocal = false
-            isChangeName = false
-
-
-            val (db_name, _) = database.getData(file.id)
-            Log.d("SYNC", "filename ${file.name}, fileId ${file.id} dbname: ${db_name}")
-            if(db_name == "") {
-                isDownload = true
-                if(database.getId(file.name) != -1L) {
-                    isSameName = true
-                }
-            } else {
-                val compareDate: Int = checkDate(file.id, Date(file.modifiedTime.value))
-                Log.d("compare sync", "name:${file.name} compare date ${compareDate}")
-                if (compareDate < 0) {
-                    Log.d("update", "syn update")
-                    isUpdate = true
-                } else if (compareDate > 0) {
-                    isDownload = true
-                    isExistLocal = true
-                }
-
-                if(db_name != file.name) {
-                    isChangeName = true
-                }
-
-                val(local, dbDrive) = database.getLocalAndDriveData(file.id)
-                Log.d("SYNC", "local:${Date(local)}, drive${Date(dbDrive)}, modified${Date(file.modifiedTime.value)}")
-                if(Date(dbDrive).compareTo(Date(local)) < 0 &&
-                    Date(dbDrive).compareTo(Date(file.modifiedTime.value)) < 0) {
-                    isConflict = true
-                    isDownload = false
-                    isUpdate = false
-                }
-            }
-
-            Log.d("SYNCData", "FILE Name:${file.name} id:${file.id}, isConflict:${isConflict.toString()} " +
-                    "isDownload:${isDownload.toString()} isUpdate:${isUpdate} isChangeName:${isChangeName.toString()}" +
-                    " isExistLocal:${isExistLocal.toString()} isSameName:${isSameName.toString()}")
-
-            var driveFileName = ""
-            val dbId = database.getId(db_name, file.id)
-            if(isConflict) {
-                //Remove google drive id to upload conflicting local files as new files
-                database.deleteDriveIdEntry(dbId)
-                val localFileName = if(isChangeName) db_name else addNameNumber(db_name)
-                renameFile(file.id+ "_" + db_name, "_" + localFileName)
-                database.updateEntry(dbId, localFileName, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
-
-                val id = database.getId(file.name)
-                driveFileName = if(id != -1L) addNameNumber(file.name) else file.name
-
-                database.insertEntry(driveFileName, file.id, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
-                setDownload(file.id, driveFileName)
-            }
-
-            if(isDownload) {
-                // Get file data from drive
-                val downloadFileName = if(isSameName && !isExistLocal) addNameNumber(file.name)
-                else file.name
-                setDownload(file.id, downloadFileName)
-
-
-                if(!isExistLocal) {
-                    database.insertEntry(downloadFileName, file.id, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
-                }
-                if(isChangeName) {
-                    // Delete old file
-                    deleteLocalFile(file.id + "_" + db_name)
-                    database.updateEntry(dbId, downloadFileName, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
-                }
-            }
-
-            if(isUpdate) {
-                val path = this.filesDir.path + "/" + file.id + "_" + file.name
-                setUpdate(file.id, file.name, path)
-            }
+            fileCheck(file)
         }
 
         /*
@@ -273,6 +186,96 @@ class SyncService : IntentService("Sync"), CoroutineScope by MainScope() {
             }
         }
 
+    }
+
+    fun fileCheck(file : File) {
+        var isUpdate : Boolean
+        var isDownload : Boolean
+        var isConflict : Boolean
+        var isSameName : Boolean
+        var isExistLocal : Boolean
+        var isChangeName : Boolean
+
+        isUpdate = false
+        isDownload = false
+        isConflict = false
+        isSameName = false
+        isExistLocal = false
+        isChangeName = false
+
+
+        val (db_name, _) = database.getData(file.id)
+        Log.d("SYNC", "filename ${file.name}, fileId ${file.id} dbname: ${db_name}")
+        if(db_name == "") {
+            isDownload = true
+            if(database.getId(file.name) != -1L) {
+                isSameName = true
+            }
+        } else {
+            val compareDate: Int = checkDate(file.id, Date(file.modifiedTime.value))
+            Log.d("compare sync", "name:${file.name} compare date ${compareDate}")
+            if (compareDate < 0) {
+                Log.d("update", "syn update")
+                isUpdate = true
+            } else if (compareDate > 0) {
+                isDownload = true
+                isExistLocal = true
+            }
+
+            if(db_name != file.name) {
+                isChangeName = true
+            }
+
+            val(local, dbDrive) = database.getLocalAndDriveData(file.id)
+            Log.d("SYNC", "local:${Date(local)}, drive${Date(dbDrive)}, modified${Date(file.modifiedTime.value)}")
+            if(Date(dbDrive).compareTo(Date(local)) < 0 &&
+                Date(dbDrive).compareTo(Date(file.modifiedTime.value)) < 0) {
+                isConflict = true
+                isDownload = false
+                isUpdate = false
+            }
+        }
+
+        Log.d("SYNCData", "FILE Name:${file.name} id:${file.id}, isConflict:${isConflict.toString()} " +
+                "isDownload:${isDownload.toString()} isUpdate:${isUpdate} isChangeName:${isChangeName.toString()}" +
+                " isExistLocal:${isExistLocal.toString()} isSameName:${isSameName.toString()}")
+
+        val dbId = database.getId(db_name, file.id)
+        if(isConflict) {
+            //Remove google drive id to upload conflicting local files as new files
+            database.deleteDriveIdEntry(dbId)
+            val localFileName = if(isChangeName) db_name else addNameNumber(db_name)
+            renameFile(file.id+ "_" + db_name, "_" + localFileName)
+            database.updateEntry(dbId, localFileName, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
+
+            val id = database.getId(file.name)
+            val driveFileName = if(id != -1L) addNameNumber(file.name) else file.name
+
+            database.insertEntry(driveFileName, file.id, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
+            setDownload(file.id, driveFileName)
+        }
+
+        if(isDownload) {
+            // Get file data from drive
+            val downloadFileName = if(isSameName && !isExistLocal) addNameNumber(file.name)
+            else file.name
+            setDownload(file.id, downloadFileName)
+
+
+            if(!isExistLocal) {
+                database.insertEntry(downloadFileName, file.id, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
+            }
+            if(isChangeName) {
+                // Delete old file
+                deleteLocalFile(file.id + "_" + db_name)
+                database.updateEntry(dbId, downloadFileName, Date(file.modifiedTime.value), Date(file.modifiedTime.value))
+            }
+        }
+
+        if(isUpdate) {
+            val path = this.filesDir.path + "/" + file.id + "_" + file.name
+            setUpdate(file.id, file.name, path)
+        }
     }
 
     fun checkDate(id: String, driveDate : Date) : Int {

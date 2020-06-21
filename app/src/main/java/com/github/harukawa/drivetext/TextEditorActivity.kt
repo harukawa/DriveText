@@ -1,10 +1,8 @@
 package com.github.harukawa.drivetext
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.EditText
@@ -105,7 +103,7 @@ class TextEditorActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         val localFile = database.getLocalFile(dbId)
         val fileName = localFile.fileName
         val input = this.openFileInput(fileName)
-        val text = BufferedReader(InputStreamReader(input)).readText() ?: ""
+        val text = BufferedReader(InputStreamReader(input)).readText()
         fileId = localFile.fileId
         isSave = true
         listTextView.text = text

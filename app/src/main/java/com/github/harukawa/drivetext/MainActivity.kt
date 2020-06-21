@@ -22,7 +22,7 @@ import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 import androidx.appcompat.app.AlertDialog
 import com.google.android.gms.common.Scopes
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
